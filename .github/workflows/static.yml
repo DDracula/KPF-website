@@ -1,5 +1,5 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+# Quartz 4.0 GitHub Pages 部署 workflow
+name: Deploy Quartz 4.0 to GitHub Pages
 
 on:
   push:
@@ -22,23 +22,27 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 安装 Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
 
-      - name: 安装依赖
+      - name: Install dependencies
         run: npm install
 
       - name: Build Quartz
         run: npx quartz build
 
-      - name: Upload artifact
+      - name: Verify build output
+        run: ls -R public
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
+          # 上传 public 文件夹，确保 index.html 在根目录
           path: './public'
 
       - name: Deploy to GitHub Pages

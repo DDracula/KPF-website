@@ -1,0 +1,32 @@
+```paradox
+technologies = {
+    elite_infantry = {
+
+		allow = {
+			always = no
+		}
+
+		research_cost = 1
+		start_year = 1936
+
+		enable_subunits = {
+			elite_infantry
+		}
+	}
+
+	simplify_formation = {
+
+		allow = {
+			always = no
+		}
+
+		research_cost = 1
+		start_year = 1936
+
+		enable_subunits = {
+			simplify_formation
+			simplify_formation_more
+			simplify_formation_max
+		}
+	}
+}

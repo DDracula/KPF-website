@@ -1,4 +1,4 @@
-# Optimized Quartz 4.0 GitHub Pages Deployment
+# Quartz 4.0 GitHub Pages 部署 workflow
 name: Deploy Quartz 4.0 to GitHub Pages
 
 on:
@@ -21,55 +21,28 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1   #  更快的浅克隆
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: 'npm'     #  自动缓存 node_modules，无需手动 cache 步骤
-
-      - name: Use official npm registry
-        run: npm config set registry https://registry.npmjs.org/
 
       - name: Install dependencies
-        run: npm ci --prefer-offline --no-audit --progress=false
-        #  npm ci 比 npm install 更快且可复现
-
-      - name: Cache Quartz build
-        uses: actions/cache@v4
-        with:
-          path: |
-            .quartz/cache
-            public
-          key: quartz-${{ hashFiles('content/**', 'quartz.config.js', 'package-lock.json') }}
-          restore-keys: quartz-
-        # 保留 Quartz 缓存和构建输出
-
-      - name: Check if rebuild is needed
-        id: check_changes
-        run: |
-          echo "Checking for content or config changes..."
-          git diff --quiet HEAD^ HEAD content quartz.config.js || echo "changes=true" >> $GITHUB_OUTPUT
+        run: npm install
 
       - name: Build Quartz
-        if: steps.check_changes.outputs.changes == 'true'
-        run: |
-          echo "Changes detected, building site..."
-          npx quartz build
-        # 仅当内容或配置变更时构建
+        run: npx quartz build
 
       - name: Verify build output
-        run: ls -R public || echo "No public folder found"
+        run: ls -R public
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
+          # 上传 public 文件夹，确保 index.html 在根目录
           path: './public'
 
       - name: Deploy to GitHub Pages

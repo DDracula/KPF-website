@@ -1,5 +1,5 @@
-# 🚀 Optimized Quartz 4.0 GitHub Pages Deploy Workflow
-name: Deploy Quartz 4.0 to GitHub Pages (Optimized)
+# Quartz 4.0 GitHub Pages 部署 workflow
+name: Deploy Quartz 4.0 to GitHub Pages
 
 on:
   push:
@@ -11,74 +11,40 @@ permissions:
   pages: write
   id-token: write
 
-# ✅ 防止重复部署冲突
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
-    # ✅ 增加构建最大时限（防止 3 分钟超时）
-    timeout-minutes: 3
-
+    runs-on: ubuntu-latest
     steps:
-      - name: 🧩 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: ⚙️ Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: "npm"
 
-      - name: 📦 Use official npm registry
-        run: npm config set registry https://registry.npmjs.org/
+      - name: Install dependencies
+        run: npm install
 
-      - name: 💾 Cache dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.npm
-            node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+      - name: Build Quartz
+        run: npx quartz build
 
-      - name: 📥 Install dependencies
-        run: npm ci --prefer-offline --no-audit --progress=false
+      - name: Verify build output
+        run: ls -R public
 
-      - name: ⚡ Cache Quartz build
-        uses: actions/cache@v3
-        with:
-          path: .quartz/cache
-          key: quartz-build-${{ hashFiles('content/**') }}-${{ hashFiles('quartz.config.js') }}
-          restore-keys: quartz-build-
-
-      - name: 🧱 Build Quartz (with logs & timer)
-        run: |
-          echo "⏳ Starting Quartz build with debug output..."
-          start=$(date +%s)
-          unset CI  # ✅ 禁用 CI 静默模式
-          export DEBUG=quartz:*  # ✅ 启用详细日志
-          npx quartz build --no-interactive || { echo "❌ Quartz build failed"; exit 1; }
-          end=$(date +%s)
-          echo "✅ Quartz build completed in $((end - start)) seconds"
-
-      - name: 🔍 Verify build output
-        run: |
-          echo "📁 Checking build output..."
-          ls -lah public || { echo "❌ Build output missing"; exit 1; }
-
-      - name: 📤 Upload Pages artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
+          # 上传 public 文件夹，确保 index.html 在根目录
           path: './public'
 
-      - name: 🚀 Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

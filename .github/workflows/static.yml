@@ -1,5 +1,5 @@
-# Optimized Quartz 4.0 GitHub Pages Deployment with Auto-Diagnostics
-name: Deploy Quartz 4.0 to GitHub Pages
+# 🚀 Optimized Quartz 4.0 GitHub Pages Deploy Workflow
+name: Deploy Quartz 4.0 to GitHub Pages (Optimized)
 
 on:
   push:
@@ -11,85 +11,68 @@ permissions:
   pages: write
   id-token: write
 
+# ✅ 防止重复部署冲突
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
   deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+
+    # ✅ 增加构建最大时限（防止 3 分钟超时）
+    timeout-minutes: 3
 
     steps:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1   # 浅克隆更快
 
       - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: 'npm'     # 自动缓存依赖
+          cache: "npm"
 
-      - name: 🛰️ Use official npm registry
+      - name: 📦 Use official npm registry
         run: npm config set registry https://registry.npmjs.org/
 
-      - name: 📦 Install dependencies
-        run: npm ci --prefer-offline --no-audit --progress=false
-
-      - name: 🗂️ Verify content folder
-        run: |
-          echo "Checking content folder..."
-          if [ ! -d "content" ]; then
-            echo "⚠️  ERROR: content folder not found!"
-            exit 1
-          fi
-          ls -lah content | head -20
-
-      - name: 🧱 Cache Quartz build
-        uses: actions/cache@v4
+      - name: 💾 Cache dependencies
+        uses: actions/cache@v3
         with:
           path: |
-            .quartz/cache
-            public
-          key: quartz-${{ hashFiles('content/**', 'quartz.config.js', 'package-lock.json') }}
-          restore-keys: quartz-
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
-      - name: 🧭 Check if rebuild needed
-        id: check_changes
+      - name: 📥 Install dependencies
+        run: npm ci --prefer-offline --no-audit --progress=false
+
+      - name: ⚡ Cache Quartz build
+        uses: actions/cache@v3
+        with:
+          path: .quartz/cache
+          key: quartz-build-${{ hashFiles('content/**') }}-${{ hashFiles('quartz.config.js') }}
+          restore-keys: quartz-build-
+
+      - name: 🧱 Build Quartz (with logs & timer)
         run: |
-          echo "Checking for changes..."
-          git fetch origin main --depth=2 || true
-          if git diff --quiet HEAD^ HEAD content quartz.config.js; then
-            echo "changes=false" >> $GITHUB_OUTPUT
-          else
-            echo "changes=true" >> $GITHUB_OUTPUT
-          fi
+          echo "⏳ Starting Quartz build with debug output..."
+          start=$(date +%s)
+          unset CI  # ✅ 禁用 CI 静默模式
+          export DEBUG=quartz:*  # ✅ 启用详细日志
+          npx quartz build --no-interactive || { echo "❌ Quartz build failed"; exit 1; }
+          end=$(date +%s)
+          echo "✅ Quartz build completed in $((end - start)) seconds"
 
-      - name: 🧩 Debug before build
-        run: echo "✅ Starting Quartz build process..."
-
-      - name: 🧰 Build Quartz (with timeout & diagnostics)
-        if: steps.check_changes.outputs.changes == 'true'
-        timeout-minutes: 6  # 自动超时保护
+      - name: 🔍 Verify build output
         run: |
-          set -x
-          echo "🧱 Running npx quartz build..."
-          # 禁用交互、减少日志量，防止卡死
-          npx --yes quartz build --no-interactive --silent || echo "⚠️ Build command failed"
-          echo "✅ Quartz build finished successfully."
-
-      - name: 🧩 Verify build output
-        run: |
-          echo "Checking build output..."
-          if [ ! -d "public" ]; then
-            echo "⚠️  ERROR: 'public' directory not found after build!"
-            exit 1
-          fi
-          ls -lah public | head -20
+          echo "📁 Checking build output..."
+          ls -lah public || { echo "❌ Build output missing"; exit 1; }
 
       - name: 📤 Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -99,10 +82,3 @@ jobs:
       - name: 🚀 Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: ✅ Deployment summary
-        if: always()
-        run: |
-          echo "🏁 Deployment finished!"
-          echo "Quartz cache status:"
-          du -sh .quartz/cache || echo "No cache directory"

@@ -46,7 +46,18 @@ jobs:
       - name: Install dependencies
         run: npm install --prefer-offline --no-audit --progress=false
 
+      - name: Determine if Quartz build is needed
+        id: check_build
+        run: |
+          echo "Checking for changes in content or quartz.config.js..."
+          if git diff --name-only HEAD~1 HEAD | grep -E '^(content/|quartz.config.js)'; then
+            echo "build_needed=true" >> $GITHUB_OUTPUT
+          else
+            echo "build_needed=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Cache Quartz build
+        if: steps.check_build.outputs.build_needed == 'true'
         uses: actions/cache@v3
         with:
           path: .quartz/cache
@@ -54,30 +65,16 @@ jobs:
           restore-keys: quartz-build-
 
       - name: Cache public output
+        if: steps.check_build.outputs.build_needed == 'true'
         uses: actions/cache@v3
         with:
           path: public
           key: public-output-${{ hashFiles('content/**') }}-${{ hashFiles('quartz.config.js') }}
           restore-keys: public-output-
 
-      - name: Determine changed content
-        id: changed_files
-        run: |
-          git fetch origin main --depth=2
-          echo "Listing changed files..."
-          CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^content/\|^quartz.config.js' || true)
-          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGED" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Build Quartz incrementally
-        if: steps.changed_files.outputs.changed_files != ''
-        run: |
-          echo "Changed files detected:"
-          echo "${{ steps.changed_files.outputs.changed_files }}"
-          # 利用 public 缓存，只覆盖改动文件
-          # 这里可以用 Quartz CLI 或自定义脚本处理增量构建
-          npx quartz build
+      - name: Build Quartz
+        if: steps.check_build.outputs.build_needed == 'true'
+        run: npx quartz build
 
       - name: Verify build output
         run: ls -R public

@@ -1,4 +1,5 @@
 name: Deploy Quartz Site
+
 on:
   push:
     branches:
@@ -8,14 +9,27 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: 18
-      - run: npm install
-      - run: npx quartz build
-      - run: touch public/.nojekyll
-      - uses: peaceiris/actions-gh-pages@v3
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Quartz site
+        run: npx quartz build
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
